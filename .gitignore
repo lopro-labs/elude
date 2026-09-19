@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+data/*
+!data/.gitkeep
+*.log
+.DS_Store
+coverage/
+
+# local session notes / transcripts
+/*.txt

@@ -1,0 +1,7 @@
+# BuildKit reads <Dockerfile>.dockerignore when building with -f apps/web/Dockerfile from the repo root.
+**/node_modules
+**/dist
+data
+graphhopper
+.git
+.env

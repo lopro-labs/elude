@@ -1,0 +1,34 @@
+# Production override — layer it OVER the base compose file, plus ONE ingress:
+#
+#   Cloudflare Tunnel (no open ports, TLS at Cloudflare's edge):
+#     docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d
+#   Caddy on 80/443 (Let's Encrypt, needs a public IP + DNS A record):
+#     docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.caddy.yml up -d
+#
+# What it changes vs. local dev:
+#  - Memory-maps the routing graph (graphhopper/config.prod.yml, MMAP), so the
+#    whole-US graph imports and serves on a 24 GB box (JAVA_OPTS=-Xmx14g; the
+#    location-index build is still in-heap) instead of the ~26 GB RAM_STORE needs.
+#  - Stops publishing the internal service ports — nothing is reachable except
+#    through the ingress you layer on top. (Uses the `!reset` tag; needs Docker
+#    Compose v2.24+.)
+# See docs/deploy.md for the full walkthrough.
+
+services:
+  graphhopper:
+    volumes:
+      - ./data:/data
+      - ./graphhopper/config.prod.yml:/graphhopper/config.yml:ro
+    environment:
+      # MMAP keeps the graph out of the heap, but the US import's location index needs ~14 GB.
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx14g -Xms2g}
+    ports: !reset []
+
+  api:
+    environment:
+      # Same-origin behind nginx; set only if the API is served cross-origin.
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    ports: !reset []
+
+  web:
+    ports: !reset []

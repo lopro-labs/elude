@@ -1,0 +1,11 @@
+# Caddy reverse proxy for Elude (used by docker-compose.prod.yml).
+# Terminates TLS for $DOMAIN (automatic Let's Encrypt) and forwards to the web
+# container (nginx), which serves the SPA and proxies /api → api:3210.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:80
+}

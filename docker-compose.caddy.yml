@@ -1,0 +1,24 @@
+# Ingress: Caddy with automatic HTTPS (Let's Encrypt) on 80/443.
+# Layer over docker-compose.yml + docker-compose.prod.yml.
+# Required in .env:  DOMAIN=elude.example.com   (and optionally ACME_EMAIL=you@example.com)
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env (the public hostname, e.g. elude.example.com)}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

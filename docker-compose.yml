@@ -1,0 +1,85 @@
+# Elude — full stack.
+#   cp .env.example .env   (edit if needed)
+#   docker compose up --build
+# First start downloads the OSM extract (a small sample region by default) and imports it
+# into GraphHopper (15–30 min). Later starts reuse ./data/graph-cache.
+name: elude
+
+services:
+  osm-download:
+    image: curlimages/curl:8.10.1
+    volumes:
+      - ./data:/data
+    environment:
+      OSM_PBF_URL: ${OSM_PBF_URL:-https://download.geofabrik.de/north-america/us/delaware-latest.osm.pbf}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        if [ -s /data/region.osm.pbf ]; then
+          echo "region.osm.pbf already present, skipping download"
+        else
+          echo "Downloading $$OSM_PBF_URL ..."
+          curl -fL --retry 5 --retry-delay 10 -o /data/region.osm.pbf.part "$$OSM_PBF_URL"
+          mv /data/region.osm.pbf.part /data/region.osm.pbf
+          echo "Download complete"
+        fi
+
+  graphhopper:
+    image: israelhikingmap/graphhopper:11.0
+    depends_on:
+      osm-download:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/data
+      - ./graphhopper/config.yml:/graphhopper/config.yml:ro
+    environment:
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx6g -Xms2g}
+    entrypoint: ["./graphhopper.sh"]
+    command: ["-c", "/graphhopper/config.yml", "-i", "/data/region.osm.pbf", "-o", "/data/graph-cache", "--host", "0.0.0.0"]
+    ports:
+      - "8989:8989"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8989/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 180m
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    depends_on:
+      graphhopper:
+        condition: service_healthy
+    environment:
+      GH_URL: http://graphhopper:8989
+      GH_PROFILE: ${GH_PROFILE:-car}
+      REGION_BBOX: ${REGION_BBOX:-38.4,-75.8,39.9,-75.0}
+      CAMERA_BUFFER_M: ${CAMERA_BUFFER_M:-30}
+      CAMERA_REFRESH_HOURS: ${CAMERA_REFRESH_HOURS:-6}
+      OVERPASS_URLS: ${OVERPASS_URLS:-https://overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter}
+      PHOTON_URL: ${PHOTON_URL:-https://photon.komoot.io}
+      NOMINATIM_URL: ${NOMINATIM_URL:-https://nominatim.openstreetmap.org}
+      API_PORT: 3210
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    ports:
+      - "${API_PORT:-3210}:3210"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_MAP_STYLE_URL: ${VITE_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
+        VITE_API_BASE: /api
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+    restart: unless-stopped

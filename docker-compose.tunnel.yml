@@ -1,0 +1,18 @@
+# Ingress: Cloudflare Tunnel. No inbound ports; Cloudflare terminates TLS and
+# the connector dials out. Layer over docker-compose.yml + docker-compose.prod.yml.
+#
+# Setup (Cloudflare Zero Trust → Networks → Tunnels → Create → Cloudflared):
+#   - copy the connector token into .env as TUNNEL_TOKEN=eyJ...
+#   - Public Hostname: <your domain> → HTTP → web:80   (service name, not localhost:
+#     the connector runs inside the compose network)
+# Required in .env:  TUNNEL_TOKEN=...
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      - web
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env (Cloudflare Zero Trust tunnel connector token)}

@@ -1,0 +1,50 @@
+# GraphHopper configuration for Elude.
+# Region PBF and graph location are passed on the command line
+# (docker: graphhopper.sh -i/-o; native: -Ddw.graphhopper.datareader.file / graph.location).
+graphhopper:
+  datareader.file: ""
+  graph.location: graph-cache
+
+  profiles:
+    - name: car
+      # Bundled default car model; a copy lives in ./custom_models/car.json for reference.
+      custom_model_files: [car.json]
+
+  # No CH (speed mode): request-time custom models need ch.disable=true anyway,
+  # and skipping CH saves import time + RAM. LM (hybrid mode) keeps queries fast.
+  profiles_ch: []
+  profiles_lm:
+    - profile: car
+
+  # road_environment is needed for the bridge/tunnel rule in the avoidance custom model,
+  # road_class for path details in the UI.
+  graph.encoded_values: car_access, car_average_speed, road_access, road_environment, road_class
+
+  # Strict avoidance can force very long detours; give the flexible/LM search room.
+  routing.max_visited_nodes: 3000000
+  routing.non_ch.max_waypoint_distance: 2000000
+
+  import.osm.ignored_highways: footway,construction,cycleway,path,steps
+
+  graph.dataaccess.default_type: RAM_STORE
+
+server:
+  application_connectors:
+    - type: http
+      port: 8989
+      bind_host: 0.0.0.0
+      max_request_header_size: 50k
+  request_log:
+    appenders: []
+  admin_connectors:
+    - type: http
+      port: 8990
+      bind_host: 0.0.0.0
+logging:
+  appenders:
+    - type: console
+      time_zone: UTC
+      log_format: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  loggers:
+    "com.graphhopper.osm_warnings":
+      level: WARN

@@ -121,6 +121,18 @@ export default function App() {
           <ExposureReport />
           <TurnByTurn />
           <TripLog />
+          <footer className="panel__disclaimer">
+            <b>Camera locations are community-sourced</b> (©{' '}
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">
+              OpenStreetMap contributors
+            </a>{' '}
+            via{' '}
+            <a href="https://deflock.org" target="_blank" rel="noopener noreferrer">
+              DeFlock
+            </a>
+            , ODbL) and may be incomplete or out of date — a “0 cameras” route means zero <i>known</i> cameras. Elude is an awareness
+            tool: obey all traffic laws and drive safely. Nothing you do here is stored on a server.
+          </footer>
         </div>
       </aside>
 

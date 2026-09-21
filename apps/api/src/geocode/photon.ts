@@ -65,14 +65,28 @@ export interface GeocodeQuery {
   limit?: number;
 }
 
+/** Only places the graph can route to: inside the region bbox and, if configured, in a covered country. */
+function inRegion(r: GeocodeResult): boolean {
+  const [lon, lat] = r.lngLat;
+  const [w, s, e, n] = config.regionBbox;
+  if (lon < w || lon > e || lat < s || lat > n) return false;
+  if (config.geocodeCountries.length === 0) return true;
+  return r.country !== undefined && config.geocodeCountries.includes(r.country.toLowerCase());
+}
+
 export async function geocode(query: GeocodeQuery, fetchImpl: typeof fetch = fetch): Promise<GeocodeResult[]> {
   const url = new URL(`${config.photonUrl}/api`);
   url.searchParams.set('q', query.q);
   url.searchParams.set('limit', String(query.limit ?? 6));
   url.searchParams.set('lang', 'en');
+  // Photon's bbox is minLon,minLat,maxLon,maxLat — same order as config.regionBbox.
+  url.searchParams.set('bbox', config.regionBbox.join(','));
   if (typeof query.lat === 'number' && typeof query.lon === 'number') {
     url.searchParams.set('lat', String(query.lat));
     url.searchParams.set('lon', String(query.lon));
+    // Prefer nearby matches but don't hide a well-known place further away.
+    url.searchParams.set('location_bias_scale', '0.4');
+    url.searchParams.set('zoom', '11');
   }
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), 10_000);
@@ -83,7 +97,7 @@ export async function geocode(query: GeocodeQuery, fetchImpl: typeof fetch = fet
     const out: GeocodeResult[] = [];
     for (const f of json.features ?? []) {
       const r = photonFeatureToResult(f);
-      if (r) out.push(r);
+      if (r && inRegion(r)) out.push(r);
     }
     return out;
   } finally {

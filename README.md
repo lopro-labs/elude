@@ -100,6 +100,7 @@ in-heap mode (`JAVA_OPTS=-Xmx20g`) or the memory-mapped production setup on a 24
 | `CAMERA_REFRESH_HOURS` | `6` | Overpass refresh interval |
 | `OVERPASS_URLS` | overpass-api.de, kumi.systems | Mirrors, tried in order |
 | `PHOTON_URL` / `NOMINATIM_URL` | public instances | Geocoders (rate limited; self-host for heavy use) |
+| `GEOCODE_COUNTRY` | *(empty)* | Restrict address search to these countries (the bbox alone can straddle a border) |
 | `VITE_MAP_STYLE_URL` | OpenFreeMap Liberty | Any MapLibre style JSON |
 
 ## Repository layout

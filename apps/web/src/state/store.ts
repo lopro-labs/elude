@@ -305,6 +305,9 @@ interface AppState {
 
   camerasInView: number;
   setCamerasInView: (n: number) => void;
+  /** Current map viewport centre — geocoding bias when there is no user location / origin. */
+  mapCenter: LngLat | null;
+  setMapCenter: (p: LngLat) => void;
 
   nav: NavState;
   updateNav: (patch: Partial<NavState>) => void;
@@ -416,6 +419,8 @@ export const useStore = create<AppState>()(
 
       camerasInView: 0,
       setCamerasInView: (n) => set({ camerasInView: n }),
+      mapCenter: null,
+      setMapCenter: (p) => set({ mapCenter: p }),
 
       nav: INITIAL_NAV,
       updateNav: (patch) => set((s) => ({ nav: { ...s.nav, ...patch } })),

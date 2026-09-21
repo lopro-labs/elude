@@ -59,7 +59,8 @@ function PlaceField({ target, placeholder, ariaLabel }: FieldProps) {
         abortRef.current = ac;
         setBusy(true);
         try {
-          const near = userLocation ?? useStore.getState().origin?.lngLat ?? null;
+          const s = useStore.getState();
+          const near = userLocation ?? s.origin?.lngLat ?? s.mapCenter;
           const r = await geocode(q, near, 6, ac.signal);
           if (!ac.signal.aborted) {
             setResults(r);

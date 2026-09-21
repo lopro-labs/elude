@@ -64,6 +64,15 @@ export const config = {
     .map((s) => s.trim())
     .filter(Boolean),
   photonUrl: str('PHOTON_URL', 'https://photon.komoot.io').replace(/\/+$/, ''),
+  /**
+   * Only return address-search results whose country matches (case-insensitive, comma-separated
+   * aliases). The routing region bbox is a rectangle, so it can straddle a border (the US bbox
+   * clips southern Canada); set this to the countries the OSM extract actually covers.
+   */
+  geocodeCountries: str('GEOCODE_COUNTRY', '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
   nominatimUrl: str('NOMINATIM_URL', 'https://nominatim.openstreetmap.org').replace(/\/+$/, ''),
   /** US Census geocoder base URL — free house-number fallback for US street addresses. */
   censusUrl: str('CENSUS_URL', 'https://geocoding.geo.census.gov').replace(/\/+$/, ''),

@@ -408,6 +408,8 @@ export function MapView() {
     if (!map || !ready) return;
     let t: number | null = null;
     const schedule = () => {
+      const c = map.getCenter();
+      useStore.getState().setMapCenter([c.lng, c.lat]);
       if (t) window.clearTimeout(t);
       t = window.setTimeout(() => void refreshCameras(), 350);
     };

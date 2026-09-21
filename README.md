@@ -1,10 +1,16 @@
 # Elude — drive unseen
 
-Google-Maps-style driving directions that **avoid ALPR / Flock Safety cameras**, using the same
-crowdsourced data as [DeFlock](https://deflock.org) (OpenStreetMap nodes tagged
-`surveillance:type=ALPR`). If a zero-camera route exists it is returned — however long the detour;
-if not, the route crossing the **fewest** cameras is returned. The plain fastest route is always
-shown alongside for comparison, and a live turn-by-turn navigation mode follows you along the way.
+Google-Maps-style driving directions that **avoid automated licence-plate-reader (ALPR) cameras**,
+using the same crowdsourced data as [DeFlock](https://deflock.org) (OpenStreetMap nodes tagged
+`surveillance:type=ALPR`, any manufacturer). If a zero-camera route exists it is returned — however
+long the detour; if not, the route crossing the **fewest** cameras is returned. The plain fastest
+route is always shown alongside for comparison, and a live turn-by-turn navigation mode follows you
+along the way.
+
+> **Elude is a privacy and awareness tool.** It shows where publicly mapped cameras are and lets you
+> choose roads that pass fewer of them; it does not interfere with any camera or system. Obey all
+> traffic laws. Camera data is community-sourced and may be incomplete, outdated, or wrong — never
+> rely on it for anything safety-critical. Provided as-is, without warranty (see [License](#license)).
 
 ```
 Browser (React + MapLibre GL)  →  api (Node 20 / Fastify)  →  GraphHopper 11 (Java routing engine)
@@ -118,19 +124,30 @@ data/           (gitignored) OSM extract, graph cache, camera cache
   by design — the fallback and fastest routes are always shown for comparison.
 - Public Photon/Nominatim/OpenFreeMap endpoints are shared community services; be considerate. For a
   public deployment, rate-limit and consider a self-hosted/keyed geocoder (see `docs/deploy.md`).
+- Elude only knows about cameras that someone has mapped in OpenStreetMap. A route with "0 cameras"
+  means zero *known* cameras, not zero cameras.
+
+## Security
+
+Found a vulnerability? Please report it privately — see **[SECURITY.md](SECURITY.md)**. Elude
+stores no user data server-side (routes are processed transiently; trip logs live only in your
+browser), and the API scrubs coordinates from its logs.
 
 ## Deploy
 
-For a public deployment (automatic HTTPS via Caddy, memory-mapped graph so the whole US fits on a
-small/free box, rate limiting, and coordinate-free logs), use the production override:
+For a public deployment (memory-mapped graph so the whole US serves from a 24 GB box, no published
+ports, rate limiting, coordinate-free logs) layer the production override plus one ingress:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Cloudflare Tunnel (recommended: no inbound ports, TLS at the edge)
+docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d
+# or Caddy with Let's Encrypt on a public IP
+docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.caddy.yml up -d
 ```
 
-See **[`docs/deploy.md`](docs/deploy.md)** for a step-by-step $0 Oracle Cloud Free ARM guide (and a
-no-VM Cloudflare Tunnel alternative), and **[`docs/hosting.md`](docs/hosting.md)** for hosting options
-and costs.
+See **[`docs/deploy.md`](docs/deploy.md)** for the step-by-step guide with measured import times and
+the kernel/heap settings the US graph needs, and **[`docs/hosting.md`](docs/hosting.md)** for hosting
+options and costs.
 
 ## Contributing
 

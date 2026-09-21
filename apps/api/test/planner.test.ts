@@ -207,6 +207,34 @@ describe('planRoute', () => {
       GHUnavailableError,
     );
   });
+
+  it('widens the avoidance corridor when a strict result crosses a camera outside it', async () => {
+    // A camera 5 km off the direct line is outside the initial corridor (3 km). A "strict" route
+    // computed without it would happily cross it; the planner must notice and re-run with it.
+    const farDetourCam = camera(offsetM(MID, 0, 5000), 'Flock Safety', 102);
+    const throughFarCam = ghPath([O, offsetM(MID, 0, 5000), D], { distance: 12_000, time: 700_000 });
+    const cleanDetour = ghPath([O, offsetM(MID, 0, 7000), D], { distance: 15_000, time: 900_000 });
+    const calls: GHRouteParams[] = [];
+    const gh: GraphHopperClient = {
+      async route(p) {
+        calls.push(p);
+        if (passOf(p) !== 'strict') return passOf(p) === 'fastest' ? direct : softAlt;
+        const polys = p.customModel?.areas?.features.find((f) => f.id === 'cams')?.geometry;
+        const n = polys?.type === 'MultiPolygon' ? polys.coordinates.length : polys ? 1 : 0;
+        // Only the on-line camera in the area → GH would route through the far camera.
+        return n <= 1 ? throughFarCam : cleanDetour;
+      },
+      async health() {
+        return { ok: true };
+      },
+    };
+    const res = await planRoute({ origin: O, destination: D }, { gh, store: store([onLine, farDetourCam]) });
+    expect(res.mode).toBe('strict');
+    expect(res.chosen.points).toEqual(cleanDetour.points);
+    expect(res.chosen.camerasCrossed).toHaveLength(0);
+    const strictCalls = calls.filter((p) => passOf(p) === 'strict');
+    expect(strictCalls).toHaveLength(2);
+  });
 });
 
 const zonesRule = (p: GHRouteParams) => (p.customModel?.priority ?? []).find((r) => r.if === 'in_zones');

@@ -13,8 +13,8 @@ import type {
 import { config } from '../config.js';
 import { cameraStore, type CameraStore } from '../cameras/store.js';
 import { getSurveillance as defaultGetSurveillance } from '../cameras/surveillance.js';
-import { routeSearchBbox } from '../util/geo.js';
-import { buildAvoidArea, buildZonesArea, camerasContainingPoint, type AvoidFeature } from './avoidGeometry.js';
+import { haversineM, routeSearchBbox } from '../util/geo.js';
+import { buildAvoidArea, buildZonesArea, camerasContainingPoint, camerasNearPaths, type AvoidFeature } from './avoidGeometry.js';
 import {
   avoidCustomModelMulti,
   GHError,
@@ -38,6 +38,20 @@ export class NoRouteError extends Error {
     super(message);
     this.name = 'NoRouteError';
   }
+}
+
+/** Corridor half-width around a path for the avoidance camera set: at least this… */
+const CORRIDOR_MIN_M = 3000;
+/** …or this fraction of the straight-line span between the stops, whichever is larger. */
+const CORRIDOR_FRACTION = 0.15;
+/** Strict passes: corridor, up to two widenings, then the full search bbox. */
+const STRICT_MAX_ITER = 4;
+
+/** Straight-line span covered by the stops (sum of consecutive leg distances). */
+function corridorSpanM(stops: LngLat[]): number {
+  let m = 0;
+  for (let i = 1; i < stops.length; i++) m += haversineM(stops[i - 1]!, stops[i]!);
+  return m;
 }
 
 export class GHUnavailableError extends Error {
@@ -179,13 +193,22 @@ export async function planRoute(req: RouteRequest, deps: PlannerDeps = {}): Prom
   const strictCams = (list: CameraFeature[]): CameraFeature[] =>
     list.filter((c) => !unavoidableIds.has(`${c.properties.osmType}/${c.properties.id}`));
 
-  // 4. avoid areas
-  t0 = Date.now();
+  // 4. avoid areas. GraphHopper's cost per call scales with the number of area polygons
+  // (every explored edge is tested against them), so instead of every camera in the
+  // search bbox we start from the cameras near the fastest path and widen only when a
+  // strict result turns out to cross a camera outside that corridor.
   const wantStrict = strictness === 'strict-then-fallback';
   const wantSoft = strictness !== 'none';
-  let strictArea: AvoidFeature | null = wantStrict ? buildAvoidArea(strictCams(cameras), bufferM, directionAware) : null;
-  const softArea: AvoidFeature | null = wantSoft ? buildAvoidArea(cameras, bufferM, directionAware) : null;
-  timings.avoidGeometry = Date.now() - t0;
+  const corridorM = Math.max(CORRIDOR_MIN_M, Math.round(corridorSpanM(stops) * CORRIDOR_FRACTION));
+  timings.avoidGeometry = 0;
+  const areaFor = (list: CameraFeature[], strict: boolean): AvoidFeature | null => {
+    const s = Date.now();
+    try {
+      return buildAvoidArea(strict ? strictCams(list) : list, bufferM, directionAware);
+    } finally {
+      timings.avoidGeometry! += Date.now() - s;
+    }
+  };
 
   const points: LngLat[] = stops;
   const timed = async <T>(name: string, fn: () => Promise<T>): Promise<T> => {
@@ -205,8 +228,13 @@ export async function planRoute(req: RouteRequest, deps: PlannerDeps = {}): Prom
     return entries.length ? avoidCustomModelMulti(entries) : undefined;
   };
 
-  const strictModel = buildModel(strictArea, 0);
-  const softModel = buildModel(softArea, softFactor);
+  const fastest = await timed('fastest', () => callGH(gh, { points }));
+
+  // Corridor camera set: near the fastest path (or everything if there is no fastest path).
+  let corridorCams = fastest && (wantStrict || wantSoft) ? camerasNearPaths(cameras, [fastest.points], corridorM) : cameras;
+  let softArea: AvoidFeature | null = wantSoft ? areaFor(corridorCams, false) : null;
+  let strictArea: AvoidFeature | null = !wantStrict ? null : unavoidable.length === 0 ? softArea : areaFor(corridorCams, true);
+
   // strictness=none with zones: one extra pass that only hard-avoids the zones.
   const zonesOnlyModel =
     strictness === 'none' && zonesArea
@@ -215,45 +243,64 @@ export async function planRoute(req: RouteRequest, deps: PlannerDeps = {}): Prom
 
   // When there is nothing to avoid (no cameras and no zones), the strict/soft passes are
   // identical to the fastest pass, so we reuse it instead of issuing redundant GH requests.
-  const fastestP = timed('fastest', () => callGH(gh, { points }));
-  const strictP =
-    wantStrict && strictModel
-      ? timed('strict', () => callGH(gh, { points, customModel: strictModel }))
-      : wantStrict
-        ? fastestP
-        : Promise.resolve<GHPath | null>(null);
-  const softP =
+  const softModel = buildModel(softArea, softFactor);
+  const softP: Promise<GHPath | null> =
     wantSoft && softModel
       ? timed('soft', () => callGH(gh, { points, customModel: softModel }))
-      : wantSoft
-        ? fastestP
-        : Promise.resolve<GHPath | null>(null);
+      : Promise.resolve(wantSoft ? fastest : null);
   const zonesOnlyP = zonesOnlyModel
     ? timed('zonesOnly', () => callGH(gh, { points, customModel: zonesOnlyModel }))
     : Promise.resolve<GHPath | null>(null);
 
-  const settled = await Promise.allSettled([fastestP, strictP, softP, zonesOnlyP]);
-  const firstFailure = settled.find((s): s is PromiseRejectedResult => s.status === 'rejected');
-  if (firstFailure) {
-    const err = firstFailure.reason;
-    if (err instanceof GHUnavailableError) throw err;
-    // A GH validation error (bad request) on one pass – if the fastest pass failed too, surface it.
-    if (settled[0].status === 'rejected') throw settled[0].reason;
-    log(`planner: secondary pass failed: ${(err as Error).message}`);
+  // Strict: run against the corridor set, verify against the full set, widen and retry.
+  let strict: GHPath | null = null;
+  let strictErr: unknown = null;
+  if (wantStrict) {
+    const strictModel = buildModel(strictArea, 0);
+    if (!strictModel) {
+      strict = fastest;
+    } else {
+      let model: CustomModel | undefined = strictModel;
+      let camSet = corridorCams;
+      for (let iter = 0; iter < STRICT_MAX_ITER; iter++) {
+        try {
+          strict = await timed(iter === 0 ? 'strict' : `strictWiden${iter}`, () => callGH(gh, { points, customModel: model }));
+        } catch (err) {
+          strictErr = err;
+          strict = null;
+          break;
+        }
+        if (!strict || camSet === cameras) break;
+        const leaked = analyseCrossings(strict, strictCams(cameras), bufferM, directionAware).crossings;
+        if (leaked.length === 0) break;
+        // Widen: cameras around the strict path too; if that adds nothing, use the whole bbox.
+        const wider = dedupeById([...camSet, ...camerasNearPaths(cameras, [strict.points], corridorM)]);
+        camSet = wider.length > camSet.length && iter < STRICT_MAX_ITER - 2 ? wider : cameras;
+        strictArea = areaFor(camSet, true);
+        model = buildModel(strictArea, 0);
+        strict = null;
+      }
+    }
   }
-  const fastest = settled[0].status === 'fulfilled' ? settled[0].value : null;
-  let strict = settled[1].status === 'fulfilled' ? settled[1].value : null;
-  const soft = settled[2].status === 'fulfilled' ? settled[2].value : null;
-  const zonesOnly = settled[3].status === 'fulfilled' ? settled[3].value : null;
+
+  const [softSettled, zonesSettled] = await Promise.allSettled([softP, zonesOnlyP]);
+  const failure = strictErr ?? (softSettled.status === 'rejected' ? softSettled.reason : zonesSettled.status === 'rejected' ? zonesSettled.reason : null);
+  if (failure) {
+    if (failure instanceof GHUnavailableError) throw failure;
+    if (!fastest) throw failure;
+    log(`planner: secondary pass failed: ${(failure as Error).message}`);
+  }
+  const soft = softSettled.status === 'fulfilled' ? softSettled.value : null;
+  const zonesOnly = zonesSettled.status === 'fulfilled' ? zonesSettled.value : null;
 
   // Strict failed → retry once with a 3x larger search bbox (more cameras to avoid, but
   // GraphHopper may find a longer detour that leaves the original bbox). Zones are folded in too.
-  if (wantStrict && strict === null && strictArea) {
+  if (wantStrict && strict === null && strictArea && !strictErr) {
     const bigBbox = routeSearchBbox(stops, 0.2, 15_000, 3);
     const bigCams = await gatherCameras(bigBbox);
     if (bigCams.length > cameras.length) {
       cameras = bigCams;
-      strictArea = buildAvoidArea(strictCams(bigCams), bufferM, directionAware);
+      strictArea = areaFor(bigCams, true);
       const retryModel = buildModel(strictArea, 0);
       strict = await timed('strictRetry', () => callGH(gh, { points, customModel: retryModel }));
     }

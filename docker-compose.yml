@@ -64,6 +64,9 @@ services:
       PHOTON_URL: ${PHOTON_URL:-https://photon.komoot.io}
       NOMINATIM_URL: ${NOMINATIM_URL:-https://nominatim.openstreetmap.org}
       GEOCODE_COUNTRY: ${GEOCODE_COUNTRY:-}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
+      RATE_LIMIT_ROUTE_MAX: ${RATE_LIMIT_ROUTE_MAX:-40}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
       API_PORT: 3210
       DATA_DIR: /data
     volumes:

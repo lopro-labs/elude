@@ -72,28 +72,53 @@ export function halfDiscPolygon(
 export type AvoidFeature = Feature<MultiPolygon | Polygon>;
 
 /**
- * Avoid polygon(s) for one camera. Omnidirectional (no direction tag, or
- * direction awareness off): one circumscribed 12-gon. Directional: the front
- * half-disc plus a small full circle around the pole itself, to be unioned.
- * Radii are circumscribed so the true shape at `radiusM` is fully covered.
+ * Per-camera polygons, memoised on the feature object. A camera's geometry only
+ * depends on (radius, directionAware), and the feature objects live in the store
+ * until the next Overpass refresh, so the WeakMap drops entries with the data.
+ * A directional camera's half-disc and core circle are pre-unioned here so the
+ * per-request work is only merging neighbouring cameras.
  */
-function cameraPolygons(
-  cam: CameraFeature,
-  radiusM: number,
-  directionAware: boolean,
-): polygonClipping.Polygon[] {
-  const center = cam.geometry.coordinates as LngLat;
+const polygonMemo = new WeakMap<CameraFeature, Map<string, polygonClipping.Polygon[]>>();
+
+/**
+ * Avoid polygon(s) for one camera. Omnidirectional (no direction tag, or
+ * direction-awareness off): a circumscribed circle. Directional: the front
+ * half-disc unioned with a small always-blocked core around the pole.
+ */
+function cameraPolygons(cam: CameraFeature, radiusM: number, directionAware: boolean): polygonClipping.Polygon[] {
   const direction = directionAware ? cam.properties.direction : undefined;
-  const circumCircleR = radiusM / Math.cos(Math.PI / CIRCLE_STEPS);
-  if (direction === undefined) {
-    return [[circlePolygon(center, circumCircleR)] as polygonClipping.Polygon];
+  const key = direction === undefined ? `o${radiusM}` : `d${radiusM}`;
+  let byKey = polygonMemo.get(cam);
+  if (!byKey) {
+    byKey = new Map();
+    polygonMemo.set(cam, byKey);
   }
-  const circumArcR = radiusM / Math.cos(Math.PI / (2 * (HALF_DISC_ARC_POINTS - 1)));
-  return [
-    [halfDiscPolygon(center, direction, circumArcR)] as polygonClipping.Polygon,
-    [circlePolygon(center, CORE_RADIUS_M / Math.cos(Math.PI / CIRCLE_STEPS))] as polygonClipping.Polygon,
-  ];
+  const hit = byKey.get(key);
+  if (hit) return hit;
+
+  const center = cam.geometry.coordinates as LngLat;
+  let polys: polygonClipping.Polygon[];
+  if (direction === undefined) {
+    polys = [[circlePolygon(center, radiusM / Math.cos(Math.PI / CIRCLE_STEPS))] as polygonClipping.Polygon];
+  } else {
+    const circumArcR = radiusM / Math.cos(Math.PI / (2 * (HALF_DISC_ARC_POINTS - 1)));
+    polys = polygonClipping.union(
+      [halfDiscPolygon(center, direction, circumArcR)] as polygonClipping.Polygon,
+      [circlePolygon(center, CORE_RADIUS_M / Math.cos(Math.PI / CIRCLE_STEPS))] as polygonClipping.Polygon,
+    );
+  }
+  byKey.set(key, polys);
+  return polys;
 }
+
+/**
+ * Unions of neighbouring-camera clusters, keyed by member ids + radius + mode.
+ * A cluster's shape depends only on its members, so it is stable across
+ * requests whose corridors overlap. Bounded: cleared when it grows past
+ * CLUSTER_MEMO_MAX (a data refresh changes ids rarely; stale keys are harmless).
+ */
+const clusterMemo = new Map<string, Position[][][]>();
+const CLUSTER_MEMO_MAX = 50_000;
 
 /**
  * Build the GraphHopper "areas" feature: circles of `radiusM` around every
@@ -111,12 +136,23 @@ export function buildAvoidArea(
   const centers = cameras.map((c) => c.geometry.coordinates as LngLat);
   const polygons: Position[][][] = [];
   for (const cluster of clusterByDistance(centers, 2 * r)) {
-    const polys = cluster.flatMap((i) => cameraPolygons(cameras[i]!, radiusM, directionAware));
-    if (polys.length === 1) {
-      polygons.push(polys[0] as unknown as Position[][]);
+    if (cluster.length === 1) {
+      for (const poly of cameraPolygons(cameras[cluster[0]!]!, radiusM, directionAware)) {
+        polygons.push(poly as unknown as Position[][]);
+      }
       continue;
     }
-    const merged = polygonClipping.union(polys[0]!, ...polys.slice(1)) as Position[][][];
+    const key = `${directionAware ? 'd' : 'o'}${radiusM}:${cluster
+      .map((i) => cameras[i]!.properties.id)
+      .sort((a, b) => a - b)
+      .join(',')}`;
+    let merged = clusterMemo.get(key);
+    if (!merged) {
+      const polys = cluster.flatMap((i) => cameraPolygons(cameras[i]!, radiusM, directionAware));
+      merged = polygonClipping.union(polys[0]!, ...polys.slice(1)) as Position[][][];
+      if (clusterMemo.size >= CLUSTER_MEMO_MAX) clusterMemo.clear();
+      clusterMemo.set(key, merged);
+    }
     for (const poly of merged) polygons.push(poly);
   }
   if (polygons.length === 0) return null;
@@ -207,4 +243,33 @@ export function clusterByDistance(points: LngLat[], maxDistM: number): number[][
 /** Cameras within `radiusM` (metres) of `point`. */
 export function camerasContainingPoint(cameras: CameraFeature[], point: LngLat, radiusM: number): CameraFeature[] {
   return cameras.filter((c) => haversineM(c.geometry.coordinates as LngLat, point) <= radiusM);
+}
+
+/**
+ * Cameras within `widthM` of any of the polylines. Samples each path every
+ * ~widthM/2 and queries an R-tree of the cameras around each sample, so the
+ * effective corridor is widthM..1.5·widthM wide (over-inclusion is harmless:
+ * the caller verifies results against the full camera set anyway).
+ */
+export function camerasNearPaths(cameras: CameraFeature[], paths: LngLat[][], widthM: number): CameraFeature[] {
+  if (cameras.length === 0 || paths.length === 0) return [];
+  interface Item { minX: number; minY: number; maxX: number; maxY: number; i: number }
+  const tree = new RBush<Item>();
+  tree.load(cameras.map((c, i) => ({ minX: c.geometry.coordinates[0]!, minY: c.geometry.coordinates[1]!, maxX: c.geometry.coordinates[0]!, maxY: c.geometry.coordinates[1]!, i })));
+  const reach = widthM * 1.5;
+  const spacing = widthM / 2;
+  const picked = new Set<number>();
+  for (const path of paths) {
+    let last: LngLat | null = null;
+    for (let k = 0; k < path.length; k++) {
+      const p = path[k]!;
+      if (last && k < path.length - 1 && haversineM(last, p) < spacing) continue;
+      last = p;
+      const { dLat, dLon } = metresToDegrees(reach, p[1]);
+      for (const hit of tree.search({ minX: p[0] - dLon, minY: p[1] - dLat, maxX: p[0] + dLon, maxY: p[1] + dLat })) {
+        if (!picked.has(hit.i) && haversineM(p, cameras[hit.i]!.geometry.coordinates as LngLat) <= reach) picked.add(hit.i);
+      }
+    }
+  }
+  return [...picked].sort((a, b) => a - b).map((i) => cameras[i]!);
 }

@@ -139,7 +139,9 @@ describe('POST /api/route', () => {
     expect(body.bufferM).toBe(40);
     expect(body.camerasConsidered).toBe(2);
     expect(body.avoidArea.id).toBe('cams');
-    expect(calls.length).toBe(3);
+    // fastest + soft + strict (corridor set) + one strict widening to the full set, because the
+    // fake GH keeps returning a camera-crossing path so the corridor result fails verification.
+    expect(calls.length).toBe(4);
   });
 });
 

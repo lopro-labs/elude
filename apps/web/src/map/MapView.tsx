@@ -439,6 +439,21 @@ export function MapView() {
     }
   }, [ready, route, selectedKind, settings.showFastest]);
 
+  // Watch mode is route-less: keep a planned route visible as context, but ghosted, and hide the
+  // comparison line + crossing markers so it does not read as active navigation.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    const ghost = nav.active && nav.watch;
+    const opacity = ghost ? 0.3 : 1;
+    for (const id of [LYR.chosen, LYR.chosenCasing]) {
+      if (map.getLayer(id)) map.setPaintProperty(id, 'line-opacity', opacity);
+    }
+    for (const id of [LYR.fastest, LYR.fastestCasing, LYR.crossedFastest, LYR.crossedChosenHalo, LYR.crossedChosen]) {
+      setVisible(map, id, !ghost);
+    }
+  }, [ready, nav.active, nav.watch, route]);
+
   // ---- Avoid zones + in-progress draft --------------------------------------
   useEffect(() => {
     const map = mapRef.current;

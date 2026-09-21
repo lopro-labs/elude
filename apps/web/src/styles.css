@@ -1518,18 +1518,35 @@ input[type='range'] {
   .panel--hidden {
     transform: translateY(calc(100% + 20px));
   }
+  /* The whole sheet scrolls (header included) so a drag that starts anywhere moves it;
+     the inner scroll container becomes a plain block. */
+  .panel {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .panel__scroll {
+    flex: none;
+    overflow: visible;
+  }
   .panel__handle {
     display: block;
+    position: sticky;
+    top: 0;
+    z-index: 2;
     width: 100%;
-    padding: 8px 0 4px;
+    padding: 12px 0 8px;
     flex: none;
+    background: rgba(13, 17, 23, 0.94);
+    touch-action: none;
+    cursor: grab;
   }
   .panel__handle::before {
     content: '';
     display: block;
-    width: 40px;
-    height: 4px;
-    border-radius: 2px;
+    width: 44px;
+    height: 5px;
+    border-radius: 3px;
     background: var(--ink-500);
     margin: 0 auto;
   }

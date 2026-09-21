@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MapView } from './map/MapView';
 import { Header } from './components/Header';
 import { SearchPanel } from './components/SearchPanel';
@@ -15,6 +15,11 @@ import { useRouting } from './hooks/useRouting';
 import { useUrlSync } from './hooks/useUrlSync';
 import { useStore } from './state/store';
 import { IconEye, IconList } from './icons/Icons';
+
+/** Handle drag distance that counts as a gesture rather than a tap. */
+const SHEET_DRAG_PX = 24;
+/** Scrolling this far inside a collapsed sheet expands it. */
+const SHEET_EXPAND_SCROLL_PX = 40;
 
 function RouteState() {
   const loading = useStore((s) => s.routeLoading);
@@ -90,11 +95,38 @@ export default function App() {
   const route = useStore((s) => s.route);
   const routeLoading = useStore((s) => s.routeLoading);
   const [collapsed, setCollapsed] = useState(false);
+  const sheetRef = useRef<HTMLElement>(null);
+  const drag = useRef<{ y: number; moved: boolean } | null>(null);
 
   // Auto-collapse the bottom sheet on mobile once a route arrives, so the map shows.
   useEffect(() => {
     if (route && window.matchMedia('(max-width: 720px)').matches) setCollapsed(true);
   }, [route]);
+
+  // Grab handle: tap toggles; drag up expands, drag down collapses.
+  const onHandlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    drag.current = { y: e.clientY, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onHandlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    const dy = e.clientY - d.y;
+    if (Math.abs(dy) < SHEET_DRAG_PX) return;
+    d.moved = true;
+    setCollapsed(dy > 0);
+    d.y = e.clientY;
+  };
+  const onHandlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = drag.current;
+    drag.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (d && !d.moved) setCollapsed((c) => !c);
+  };
+  // Scrolling the sheet's content while collapsed means the user wants more of it.
+  const onSheetScroll = () => {
+    if (collapsed && sheetRef.current && sheetRef.current.scrollTop > SHEET_EXPAND_SCROLL_PX) setCollapsed(false);
+  };
 
   const hidden = navActive || !panelOpen;
 
@@ -104,8 +136,21 @@ export default function App() {
       <HealthBanner />
       <NavHud />
 
-      <aside className={`panel${hidden ? ' panel--hidden' : ''}${collapsed ? ' panel--collapsed' : ''}`} aria-hidden={hidden} aria-label="Directions panel">
-        <button className="panel__handle" aria-label={collapsed ? 'Expand panel' : 'Collapse panel'} onClick={() => setCollapsed((c) => !c)} />
+      <aside
+        ref={sheetRef}
+        className={`panel${hidden ? ' panel--hidden' : ''}${collapsed ? ' panel--collapsed' : ''}`}
+        aria-hidden={hidden}
+        aria-label="Directions panel"
+        onScroll={onSheetScroll}
+      >
+        <button
+          className="panel__handle"
+          aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={onHandlePointerUp}
+          onPointerCancel={() => { drag.current = null; }}
+        />
         <Header />
         <div className="panel__scroll">
           <SearchPanel />

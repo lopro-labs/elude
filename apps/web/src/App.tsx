@@ -187,8 +187,8 @@ export default function App() {
         </button>
       )}
       {!navActive && (
-        <button className="watch-fab" onClick={startWatch} title="Track your position without a route and warn about nearby cameras" aria-label="Watch for cameras">
-          <IconEye /> <span>Watch</span>
+        <button className="watch-fab" onClick={startWatch} title="Scout: camera alerts while you drive, no route needed" aria-label="Scout for mapped cameras">
+          <IconEye /> <span>Scout</span>
         </button>
       )}
     </div>

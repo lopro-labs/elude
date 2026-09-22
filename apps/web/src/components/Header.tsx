@@ -39,7 +39,7 @@ export function Header() {
         </div>
       </div>
       <div className="hdr__actions">
-        <button className="icon-btn" onClick={startWatch} title="Watch mode: track your position without a route and warn about nearby cameras" aria-label="Watch for cameras">
+        <button className="icon-btn" onClick={startWatch} title="Scout: camera alerts while you drive, no route needed" aria-label="Scout for mapped cameras">
           <IconEye />
         </button>
         <button

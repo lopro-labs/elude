@@ -123,7 +123,7 @@ function WatchHud() {
           </div>
           <div>
             <div className="hud__dist">{hasFix ? speed : 'GPS'}</div>
-            <div className="hud__text">{hasFix ? 'Watching for cameras' : nav.gpsError ?? 'Waiting for your location…'}</div>
+            <div className="hud__text">{hasFix ? 'Scouting ahead' : nav.gpsError ?? 'Waiting for your location…'}</div>
           </div>
         </div>
         {nav.cameraAlert && (
@@ -138,10 +138,10 @@ function WatchHud() {
           </div>
         )}
         <div className="hud__flags">
-          <span className="hud__flag hud__flag--info">Watch mode</span>
+          <span className="hud__flag hud__flag--info">Scout mode</span>
           {hasFix && (
             <span className="hud__flag">
-              {nav.nearbyCount} camera{nav.nearbyCount === 1 ? '' : 's'} within {formatDistance(500, units)}
+              {nav.nearbyCount} mapped camera{nav.nearbyCount === 1 ? '' : 's'} within {formatDistance(500, units)}
             </span>
           )}
         </div>
@@ -152,7 +152,7 @@ function WatchHud() {
           <div className="navbar__eta">
             {passes} passed
           </div>
-          <div className="navbar__sub">{hasFix ? 'Logging every camera you pass' : 'Waiting for GPS'}</div>
+          <div className="navbar__sub">{hasFix ? 'Alerts for mapped cameras near you · logging each pass' : 'Waiting for GPS'}</div>
         </div>
         <div className="navbar__actions">
           <button className={`icon-btn${voice ? ' icon-btn--active' : ''}`} onClick={() => updateSettings({ voice: !voice })} title={voice ? 'Mute voice' : 'Unmute voice'} aria-label={voice ? 'Mute voice' : 'Unmute voice'}>

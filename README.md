@@ -32,6 +32,12 @@ Browser (React + MapLibre GL)  →  api (Node 20 / Fastify)  →  GraphHopper 11
   camera's direction and field of view.
 - **Live navigation** — turn-by-turn with voice, GPS or simulated drive, off-route rerouting, and a
   screen wake-lock. Installable **PWA** with an offline shell.
+- **Camera pass alerts** — while navigating, a warning ~300 m before each mapped camera and again as
+  you pass it: on-screen strip, spoken, and a vibration on the phone.
+- **Scout mode** — the same alerts without a route: tap Scout and drive; cameras mapped near you are
+  announced as you approach and pass them.
+- **Trip log** — every camera you passed (time, position, manufacturer, operator, OSM link) is kept in
+  your browser; export as CSV or copy a public-records request template grouped by operator.
 - **Share & export** — routes encode into the URL (shareable/refresh-proof) and export to **GPX**.
 - **Real address search** — Photon for places, with a free **US Census** house-number fallback.
 

@@ -12,6 +12,16 @@ along the way.
 > traffic laws. Camera data is community-sourced and may be incomplete, outdated, or wrong — never
 > rely on it for anything safety-critical. Provided as-is, without warranty (see [License](#license)).
 
+**Try it: [eludeapp.com](https://eludeapp.com)** · or run it yourself (see [Deploy](#deploy)).
+
+<p align="center">
+  <a href="https://github.com/lopro-labs/elude/releases/download/v0.1.0/elude-demo-mobile.mp4">
+    <img src="docs/media/demo-mobile-poster.png" width="300" alt="Elude demo: a camera-free route next to the fastest route, then a 'Passing camera' alert during a simulated drive">
+  </a>
+  <br>
+  <sub>60-second demo — <a href="https://github.com/lopro-labs/elude/releases/download/v0.1.0/elude-demo-mobile.mp4">mobile</a> · <a href="https://github.com/lopro-labs/elude/releases/download/v0.1.0/elude-demo-desktop.mp4">desktop</a></sub>
+</p>
+
 ```
 Browser (React + MapLibre GL)  →  api (Node 20 / Fastify)  →  GraphHopper 11 (Java routing engine)
                                       ├→ Overpass API  (camera nodes, cached on disk, refreshed every 6 h)

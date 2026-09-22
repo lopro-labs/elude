@@ -14,13 +14,9 @@ along the way.
 
 **Try it: [eludeapp.com](https://eludeapp.com)** · or run it yourself (see [Deploy](#deploy)).
 
-<p align="center">
-  <a href="https://github.com/lopro-labs/elude/releases/download/v0.1.0/elude-demo-mobile.mp4">
-    <img src="docs/media/demo-mobile-poster.png" width="300" alt="Elude demo: a camera-free route next to the fastest route, then a 'Passing camera' alert during a simulated drive">
-  </a>
-  <br>
-  <sub>60-second demo — <a href="https://github.com/lopro-labs/elude/releases/download/v0.1.0/elude-demo-mobile.mp4">mobile</a> · <a href="https://github.com/lopro-labs/elude/releases/download/v0.1.0/elude-demo-desktop.mp4">desktop</a></sub>
-</p>
+https://github.com/user-attachments/assets/70441698-ead1-4508-8337-4014aa18ae56
+
+<sub>60-second demo — download: <a href="https://github.com/lopro-labs/elude/releases/download/v0.1.0/elude-demo-mobile.mp4">mobile</a> · <a href="https://github.com/lopro-labs/elude/releases/download/v0.1.0/elude-demo-desktop.mp4">desktop</a></sub>
 
 ```
 Browser (React + MapLibre GL)  →  api (Node 20 / Fastify)  →  GraphHopper 11 (Java routing engine)

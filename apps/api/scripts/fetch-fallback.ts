@@ -46,7 +46,7 @@ async function main(): Promise<void> {
     const raw = JSON.parse(await fs.readFile(process.argv[fromIdx + 1]!, 'utf8')) as OverpassResponse;
     features = raw.elements.map(elementToFeature).filter((f): f is CameraFeature => f !== null);
   } else {
-    features = await fetchCameras(config.regionBbox, { log: (m) => console.log(m) });
+    ({ features } = await fetchCameras(config.regionBbox, { log: (m) => console.log(m) }));
   }
   const trimmed = features.map(trim);
   const out = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../data/cameras.fallback.geojson');

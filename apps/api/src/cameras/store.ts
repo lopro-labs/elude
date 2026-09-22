@@ -4,7 +4,7 @@ import path from 'node:path';
 import RBush from 'rbush';
 import type { BBox, CameraCollection, CameraFeature, CameraStats } from '@elude/shared';
 import { config } from '../config.js';
-import { fetchCameras } from './overpass.js';
+import { fetchCameras, type CameraFetchResult } from './overpass.js';
 
 interface Item {
   minX: number;
@@ -24,7 +24,7 @@ export interface CameraStoreOptions {
   fallbackPath?: string;
   regionBbox?: BBox;
   refreshHours?: number;
-  fetcher?: (bbox: BBox, log: (m: string) => void) => Promise<CameraFeature[]>;
+  fetcher?: (bbox: BBox, log: (m: string) => void) => Promise<CameraFetchResult>;
   log?: (msg: string) => void;
   warn?: (msg: string) => void;
 }
@@ -149,17 +149,27 @@ export class CameraStore {
     }
   }
 
-  /** Fetch from Overpass; on success swap data + write cache. Serves stale data on failure. */
+  /**
+   * Fetch from Overpass; on success swap data + write cache. Serves stale data on failure.
+   * Tiles that failed keep whatever the previous data set had for their area: a partial
+   * fetch must never make a region look camera-free.
+   */
   refresh(): Promise<void> {
     if (this.refreshing) return this.refreshing;
     this.refreshing = (async () => {
       const t0 = Date.now();
       try {
         this.log(`cameras: fetching from Overpass for bbox [${this.regionBbox.join(', ')}]`);
-        const features = await this.fetcher(this.regionBbox, this.log);
-        const fetchedAt = new Date().toISOString();
+        const { features: fresh, failedTiles } = await this.fetcher(this.regionBbox, this.log);
+        const features = failedTiles.length ? this.backfill(fresh, failedTiles) : fresh;
+        // With failed tiles the data set is a mix; keep the older timestamp so staleness
+        // checks retry on the next tick rather than treating the mix as fully fresh.
+        const fetchedAt = failedTiles.length && this.fetchedAt ? this.fetchedAt : new Date().toISOString();
         this.setFeatures(features, 'overpass', fetchedAt);
-        this.log(`cameras: loaded ${features.length} cameras from Overpass in ${Date.now() - t0} ms`);
+        this.log(
+          `cameras: loaded ${features.length} cameras from Overpass in ${Date.now() - t0} ms` +
+            (failedTiles.length ? ` (${failedTiles.length} tile(s) backfilled from the previous data set)` : ''),
+        );
         await this.saveCache(features, fetchedAt);
       } catch (err) {
         this.warn(`cameras: Overpass refresh failed (${(err as Error).message}); serving ${this.features.length} cached cameras`);
@@ -172,6 +182,24 @@ export class CameraStore {
     // Avoid unhandled rejections for fire-and-forget callers; awaiting callers still get the error.
     this.refreshing.catch(() => {});
     return this.refreshing;
+  }
+
+  /** Merge `fresh` with the previous set's cameras that lie inside any of the failed tiles. */
+  private backfill(fresh: CameraFeature[], failedTiles: BBox[]): CameraFeature[] {
+    const ids = new Set(fresh.map((f) => `${f.properties.osmType}/${f.properties.id}`));
+    const out = [...fresh];
+    let kept = 0;
+    for (const tile of failedTiles) {
+      for (const f of this.query(tile)) {
+        const key = `${f.properties.osmType}/${f.properties.id}`;
+        if (ids.has(key)) continue;
+        ids.add(key);
+        out.push(f);
+        kept++;
+      }
+    }
+    this.warn(`cameras: ${failedTiles.length} tile(s) failed; kept ${kept} cameras from the previous data set for those areas`);
+    return out;
   }
 
   private async loadFallback(): Promise<boolean> {

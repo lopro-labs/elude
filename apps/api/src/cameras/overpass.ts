@@ -219,11 +219,19 @@ async function fetchTile(
   throw lastErr instanceof Error ? lastErr : new Error('Overpass fetch failed');
 }
 
+export interface CameraFetchResult {
+  features: CameraFeature[];
+  /** Tiles whose fetch failed after retries; `features` has nothing from these areas. */
+  failedTiles: BBox[];
+}
+
 /**
  * Fetch all ALPR cameras inside `bbox` from Overpass. Large regions are split
- * into a grid of tiles and merged (deduplicated by type/id).
+ * into a grid of tiles and merged (deduplicated by type/id). A flaky tile does
+ * not abort the fetch: it is reported in `failedTiles` so the caller can keep
+ * its previous data for that area instead of treating it as camera-free.
  */
-export async function fetchCameras(bbox: BBox, opts: OverpassOptions = {}): Promise<CameraFeature[]> {
+export async function fetchCameras(bbox: BBox, opts: OverpassOptions = {}): Promise<CameraFetchResult> {
   const urls = opts.urls ?? config.overpassUrls;
   const maxTileDeg = opts.maxTileDeg ?? 12;
   const retries = opts.retries ?? 2;
@@ -234,7 +242,7 @@ export async function fetchCameras(bbox: BBox, opts: OverpassOptions = {}): Prom
   // more tiles there are (e.g. a whole-country grid).
   const gapMs = tiles.length > 8 ? 4000 : tiles.length > 3 ? 2500 : 1500;
   const seen = new Map<string, CameraFeature>();
-  let failed = 0;
+  const failedTiles: BBox[] = [];
   for (const [i, tile] of tiles.entries()) {
     log(`overpass: fetching tile ${i + 1}/${tiles.length} [${tile.map((n) => n.toFixed(2)).join(',')}]`);
     try {
@@ -244,20 +252,18 @@ export async function fetchCameras(bbox: BBox, opts: OverpassOptions = {}): Prom
         if (f) seen.set(`${el.type}/${el.id}`, f);
       }
     } catch (err) {
-      // A single flaky tile must not wipe the whole fetch (critical for large,
-      // many-tile regions like the whole US). Keep what we have and move on.
-      failed++;
+      failedTiles.push(tile);
       log(`overpass: tile ${i + 1}/${tiles.length} failed after retries: ${(err as Error).message}`);
     }
     if (tiles.length > 1 && i < tiles.length - 1) await sleep(gapMs);
   }
-  if (failed === tiles.length) {
+  if (failedTiles.length === tiles.length) {
     throw new Error(`Overpass: all ${tiles.length} tile(s) failed`);
   }
-  if (failed > 0) {
-    log(`overpass: ${failed}/${tiles.length} tiles failed; returning ${seen.size} cameras (partial)`);
+  if (failedTiles.length > 0) {
+    log(`overpass: ${failedTiles.length}/${tiles.length} tiles failed; ${seen.size} cameras from the rest (partial)`);
   }
-  return [...seen.values()];
+  return { features: [...seen.values()], failedTiles };
 }
 
 /**

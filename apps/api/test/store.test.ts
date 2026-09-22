@@ -48,7 +48,7 @@ describe('CameraStore', () => {
     let calls = 0;
     const fetcher = async () => {
       calls++;
-      return [camera([-122, 37], 'Flock Safety', 1), camera([-121, 36], 'Motorola Solutions', 2)];
+      return { features: [camera([-122, 37], 'Flock Safety', 1), camera([-121, 36], 'Motorola Solutions', 2)], failedTiles: [] };
     };
     const store = new CameraStore({ dataDir: dir, fallbackPath: path.join(dir, 'missing.geojson'), fetcher, log: noop, warn: noop });
     await store.start();
@@ -67,5 +67,29 @@ describe('CameraStore', () => {
     expect(store2.stats().count).toBe(2);
     expect(calls).toBe(1);
     store2.stop();
+  });
+
+  it('keeps the previous cameras for tiles that failed instead of dropping them', async () => {
+    const dir = tmpDir();
+    const west = camera([-122, 37], 'Flock Safety', 1); // inside the tile that will fail
+    const east = camera([-80, 40], 'Motorola Solutions', 2);
+    const eastNew = camera([-81, 41], 'Genetec', 3);
+    let call = 0;
+    const fetcher = async () => {
+      call++;
+      if (call === 1) return { features: [west, east], failedTiles: [] };
+      // Second refresh: the western tile times out; Overpass only returned the east.
+      return { features: [east, eastNew], failedTiles: [[-125, 30, -110, 45] as [number, number, number, number]] };
+    };
+    const store = new CameraStore({ dataDir: dir, fallbackPath: path.join(dir, 'missing.geojson'), fetcher, log: noop, warn: noop });
+    await store.start();
+    await store.refresh();
+    const firstFetchedAt = store.stats().fetchedAt;
+    await store.refresh();
+    const ids = store.all().map((f) => f.properties.id).sort();
+    expect(ids).toEqual([1, 2, 3]); // west kept from the previous set, east updated
+    // A mixed data set is not stamped as fully fresh, so the next tick retries.
+    expect(store.stats().fetchedAt).toBe(firstFetchedAt);
+    store.stop();
   });
 });

@@ -1,6 +1,6 @@
 import { useStore } from '../state/store';
 import { formatCount, formatDate, formatShortDate } from '../util/format';
-import { IconEye, IconSettings, Logo } from '../icons/Icons';
+import { IconBinoculars, IconSettings, Logo } from '../icons/Icons';
 import { MOCK } from '../api/client';
 
 export function Header() {
@@ -40,7 +40,7 @@ export function Header() {
       </div>
       <div className="hdr__actions">
         <button className="icon-btn" onClick={startWatch} title="Scout: camera alerts while you drive, no route needed" aria-label="Scout for mapped cameras">
-          <IconEye />
+          <IconBinoculars />
         </button>
         <button
           className={`icon-btn${settingsOpen ? ' icon-btn--active' : ''}`}

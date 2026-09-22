@@ -195,9 +195,11 @@ export const IconCheck = (p: P) => (
     <path d="M4 12.5l5 5L20 6.5" />
   </svg>
 );
-export const IconEye = (p: P) => (
+/** Scout mode: field binoculars. */
+export const IconBinoculars = (p: P) => (
   <svg {...base} {...p}>
-    <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" />
-    <circle cx="12" cy="12" r="3" />
+    <path d="M7 5h2.5v5.5l1.5 8.5H3l2-8.5V5z" />
+    <path d="M14.5 5H17v5.5l2 8.5h-8l1.5-8.5V5z" />
+    <path d="M9.5 9h5" />
   </svg>
 );

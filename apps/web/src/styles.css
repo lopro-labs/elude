@@ -395,7 +395,7 @@ a {
   color: var(--text);
 }
 
-/* Floating "Watch" button: route-less camera alerts, available whenever not navigating */
+/* Floating "Scout" button: route-less camera alerts, available whenever not navigating */
 .watch-fab {
   position: absolute;
   z-index: 11;
@@ -413,6 +413,11 @@ a {
   color: var(--text);
   font-weight: 600;
   font-size: 13px;
+}
+.watch-fab svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 .watch-fab:hover {
   background: var(--ink-700);

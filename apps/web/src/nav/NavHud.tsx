@@ -1,7 +1,7 @@
 import { activePath, useStore } from '../state/store';
 import { formatDistance, formatDuration, formatEta, formatManeuverDistance } from '../util/format';
 import { ManeuverIcon } from '../icons/ManeuverIcon';
-import { IconClose, IconEye, IconMuted, IconVolume } from '../icons/Icons';
+import { IconBinoculars, IconClose, IconMuted, IconVolume } from '../icons/Icons';
 
 export function NavHud() {
   const nav = useStore((s) => s.nav);
@@ -119,7 +119,7 @@ function WatchHud() {
       <div className="hud" aria-live="polite">
         <div className="hud__main">
           <div className="hud__icon">
-            <IconEye />
+            <IconBinoculars />
           </div>
           <div>
             <div className="hud__dist">{hasFix ? speed : 'GPS'}</div>

@@ -14,7 +14,7 @@ import { useWatch } from './nav/useWatch';
 import { useRouting } from './hooks/useRouting';
 import { useUrlSync } from './hooks/useUrlSync';
 import { useStore } from './state/store';
-import { IconEye, IconList } from './icons/Icons';
+import { IconBinoculars, IconList } from './icons/Icons';
 
 /** Handle drag distance that counts as a gesture rather than a tap. */
 const SHEET_DRAG_PX = 24;
@@ -188,7 +188,7 @@ export default function App() {
       )}
       {!navActive && (
         <button className="watch-fab" onClick={startWatch} title="Scout: camera alerts while you drive, no route needed" aria-label="Scout for mapped cameras">
-          <IconEye /> <span>Scout</span>
+          <IconBinoculars /> <span>Scout</span>
         </button>
       )}
     </div>

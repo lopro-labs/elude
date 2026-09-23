@@ -140,6 +140,27 @@ data/           (gitignored) OSM extract, graph cache, camera cache
 - Elude only knows about cameras that someone has mapped in OpenStreetMap. A route with "0 cameras"
   means zero *known* cameras, not zero cameras.
 
+## Related projects
+
+Elude is one of several tools built on the DeFlock / OpenStreetMap camera data. They share a goal and
+most of a stack (GraphHopper, MapLibre); pick whichever fits how you drive.
+
+| | Elude | [FlockHopper](https://github.com/flockhopperdev/FlockHopper) | [Drivers Against Flock](https://github.com/layered-tech/driversagainstflock) |
+|---|---|---|---|
+| Source / licence | MIT, whole stack | MIT (web); native apps separate | Proprietary licence |
+| Runs as | web app / PWA, self-hostable | web app + iOS / Android apps | iOS / Android app + hosted backend |
+| Account | none | none | required |
+| Camera data | live OpenStreetMap via Overpass, refreshed every 6 h | bundled snapshot | own database synced from OSM |
+| Routing | strict zero-known-camera route (verified), fewest-camera fallback, balanced, fastest — side by side with the time cost | standard vs. privacy-optimised | avoid routing plus police alerts, speed limits |
+| Camera facing | direction-aware; bridge/tunnel aware | — | — |
+| Modes | car | car, bicycle, foot | car |
+| While driving | turn-by-turn with approach/pass alerts; **Scout** alerts without a route | map with cameras | turn-by-turn |
+| Afterwards | **trip log** + per-operator public-records request template | — | — |
+| Also | multi-stop, user avoid-zones, speed/red-light/CCTV layers, GPX, share links | waypoints, GPX | gas prices |
+
+If Elude's routing or records-request pieces are useful to another project, take them — that's what the
+licence is for. Corrections to this table are welcome as issues or PRs.
+
 ## Security
 
 Found a vulnerability? Please report it privately — see **[SECURITY.md](SECURITY.md)**. Elude

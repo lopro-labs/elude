@@ -100,7 +100,7 @@ export function TripLog() {
                 {trip.mode !== 'route' && (
                   <>
                     {' '}
-                    <span className="hud__flag hud__flag--info">{trip.mode === 'watch' ? 'Scout' : 'Simulated'}</span>
+                    <span className="hud__flag hud__flag--info">Scout</span>
                   </>
                 )}
               </span>

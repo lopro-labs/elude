@@ -449,8 +449,9 @@ export const useStore = create<AppState>()(
           const d = s.tripDraft;
           const path = activePath(s.route, s.selectedKind);
           const watch = d?.mode === 'watch';
+          // Previews (simulated drives) are demos, not drives: never logged.
           const trips =
-            d && d.passes.length > 0
+            d && d.passes.length > 0 && d.mode !== 'simulate'
               ? [
                   {
                     id: `t${Date.now().toString(36)}`,

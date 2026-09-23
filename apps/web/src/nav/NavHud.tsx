@@ -72,7 +72,7 @@ export function NavHud() {
         <div className="hud__flags">
           {nav.rerouting && <span className="hud__flag hud__flag--info">Rerouting…</span>}
           {nav.offRoute && !nav.rerouting && <span className="hud__flag hud__flag--bad">Off route</span>}
-          {nav.simulate && <span className="hud__flag hud__flag--info">Simulated drive</span>}
+          {nav.simulate && <span className="hud__flag hud__flag--info">Preview · not logged</span>}
           {nextCam && hasFix && !nav.cameraAlert && (
             <span className="hud__flag" title={nextCam.possiblyNotVisible ? 'On a bridge/tunnel — may not be visible to the camera' : undefined}>
               Camera ahead in {formatDistance(Math.max(0, cumAt(path.points, nextCam.pathIndex) - nav.alongM), units)}

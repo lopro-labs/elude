@@ -273,7 +273,7 @@ export function useNavigation() {
           });
         },
         (err) => {
-          useStore.getState().updateNav({ gpsError: err.code === err.PERMISSION_DENIED ? 'Location permission denied. Allow location access or use Simulate.' : 'Waiting for a GPS fix…' });
+          useStore.getState().updateNav({ gpsError: err.code === err.PERMISSION_DENIED ? 'Location permission denied. Allow location access or use Preview.' : 'Waiting for a GPS fix…' });
         },
         { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
       );

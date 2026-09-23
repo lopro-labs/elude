@@ -283,8 +283,8 @@ export function RouteSummary() {
         <button className="btn btn--primary" onClick={() => startNav(false)}>
           <IconNav /> Start
         </button>
-        <button className="btn btn--ghost" onClick={() => startNav(true)} title="Play back the route without GPS">
-          <IconPlay /> Simulate
+        <button className="btn btn--ghost" onClick={() => startNav(true)} title="Play back the route without GPS to see the alerts. Previews are not saved to the trip log.">
+          <IconPlay /> Preview
         </button>
         <button className="btn btn--ghost" onClick={() => setSettingsOpen(true)} title="Adjust avoidance">
           Options

@@ -36,7 +36,7 @@ Browser (React + MapLibre GL)  →  api (Node 20 / Fastify)  →  GraphHopper 11
   each toggleable for display and avoidance.
 - **Exposure report** — a timeline of every camera you'll pass, and a coverage overlay showing each
   camera's direction and field of view.
-- **Live navigation** — turn-by-turn with voice, GPS or simulated drive, off-route rerouting, and a
+- **Live navigation** — turn-by-turn with voice, GPS or a route preview, off-route rerouting, and a
   screen wake-lock. Installable **PWA** with an offline shell.
 - **Camera pass alerts** — while navigating, a warning ~300 m before each mapped camera and again as
   you pass it: on-screen strip, spoken, and a vibration on the phone.

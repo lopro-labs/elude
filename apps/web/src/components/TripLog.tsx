@@ -1,8 +1,39 @@
 import { useEffect, useState } from 'react';
+import { reverseGeocode } from '../api/client';
 import { useStore, type Trip } from '../state/store';
 import { downloadFile } from '../util/download';
-import { buildTripCsv, buildTripRequestText, tripFilename } from '../util/tripExport';
+import { muckrockAgencyUrl } from '../util/recordsLaw';
+import { buildOperatorRequestText, buildTripCsv, buildTripRequestText, groupByOperator, tripFilename } from '../util/tripExport';
 import { IconCheck } from '../icons/Icons';
+
+/**
+ * Resolve the US state of each operator group's first pass (one reverse geocode
+ * per group, sequential to respect the API rate limit) and persist it on the trip.
+ */
+function useResolvePassStates(trip: Trip | undefined) {
+  const setTripPassStates = useStore((s) => s.setTripPassStates);
+  useEffect(() => {
+    if (!trip) return;
+    const todo = groupByOperator(trip)
+      .map((g) => g.passes[0]!)
+      .filter((p) => !p.state);
+    if (todo.length === 0) return;
+    const ac = new AbortController();
+    (async () => {
+      const states: Record<number, string> = {};
+      for (const p of todo) {
+        try {
+          const r = await reverseGeocode(p.lngLat, ac.signal);
+          if (r?.state) states[p.cameraId] = r.state;
+        } catch {
+          if (ac.signal.aborted) return;
+        }
+      }
+      if (!ac.signal.aborted && Object.keys(states).length) setTripPassStates(trip.id, states);
+    })();
+    return () => ac.abort();
+  }, [trip, setTripPassStates]);
+}
 
 /**
  * Saved drives with every camera passed, exportable as CSV or a
@@ -15,7 +46,9 @@ export function TripLog() {
   const sendMapCommand = useStore((s) => s.sendMapCommand);
   const newestId = trips[0]?.id ?? null;
   const [openId, setOpenId] = useState<string | null>(newestId);
+  /** trip id, or `${tripId}:${operator}` for a per-operator copy */
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  useResolvePassStates(trips.find((t) => t.id === openId));
 
   // A drive that just ended lands at the top; show it expanded right after Exit.
   useEffect(() => {
@@ -24,15 +57,23 @@ export function TripLog() {
 
   if (trips.length === 0) return null;
 
-  const copyRequest = async (trip: Trip) => {
+  const copy = async (key: string, text: string) => {
     try {
-      await navigator.clipboard.writeText(buildTripRequestText(trip));
-      setCopiedId(trip.id);
-      window.setTimeout(() => setCopiedId((id) => (id === trip.id ? null : id)), 1600);
+      await navigator.clipboard.writeText(text);
+      setCopiedId(key);
+      window.setTimeout(() => setCopiedId((id) => (id === key ? null : id)), 1600);
     } catch {
       /* clipboard unavailable */
     }
   };
+  const copied = (key: string, label: string) =>
+    copiedId === key ? (
+      <>
+        <IconCheck /> Copied
+      </>
+    ) : (
+      label
+    );
 
   return (
     <section className="trips" aria-label="Trip log">
@@ -82,18 +123,46 @@ export function TripLog() {
                     </li>
                   ))}
                 </ul>
+                <div className="expo__head">
+                  <span>Records requests</span>
+                  <span>one per operator</span>
+                </div>
+                <ul className="expo__list">
+                  {groupByOperator(trip).map((g) => {
+                    const key = `${trip.id}:${g.operator}`;
+                    return (
+                      <li key={key} className="trip__op">
+                        <div className="trip__op-head">
+                          <span className="expo__meta">{g.operator}</span>
+                          <span className="expo__eta">
+                            {g.passes.length} camera{g.passes.length === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <div className="field__help">
+                          {g.law
+                            ? `${g.law.law} (${g.law.citation}) · response within ${g.law.deadline}${g.mixedStates ? ' · spans more than one state' : ''}`
+                            : 'State law not resolved — request cites "the applicable public-records law".'}
+                        </div>
+                        <div className="summary__actions">
+                          <button className="btn btn--ghost btn--sm" onClick={() => copy(key, buildOperatorRequestText(trip, g))}>
+                            {copied(key, 'Copy request')}
+                          </button>
+                          {g.tagged && (
+                            <a className="btn btn--ghost btn--sm" href={muckrockAgencyUrl(g.operator)} target="_blank" rel="noopener noreferrer">
+                              Find agency on MuckRock
+                            </a>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
                 <div className="summary__actions">
                   <button className="btn btn--ghost btn--sm" onClick={() => downloadFile(buildTripCsv(trip), tripFilename(trip), 'text/csv')}>
                     Export CSV
                   </button>
-                  <button className="btn btn--ghost btn--sm" onClick={() => copyRequest(trip)}>
-                    {copiedId === trip.id ? (
-                      <>
-                        <IconCheck /> Copied
-                      </>
-                    ) : (
-                      'Copy request text'
-                    )}
+                  <button className="btn btn--ghost btn--sm" onClick={() => copy(trip.id, buildTripRequestText(trip))}>
+                    {copied(trip.id, 'Copy all as one')}
                   </button>
                   <button className="btn btn--danger btn--sm" onClick={() => deleteTrip(trip.id)}>
                     Delete

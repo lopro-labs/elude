@@ -217,6 +217,8 @@ export interface TripPass {
   distanceM: number;
   possiblyNotVisible: boolean;
   facingAway?: boolean;
+  /** US state of the pass, resolved lazily (reverse geocode) for the records request. */
+  state?: string;
   /** metres into the drive */
   alongM: number;
 }
@@ -325,6 +327,8 @@ interface AppState {
   trips: Trip[];
   deleteTrip: (id: string) => void;
   clearTrips: () => void;
+  /** Persist resolved states for passes of a trip (cameraId -> state). */
+  setTripPassStates: (tripId: string, states: Record<number, string>) => void;
 
   panelOpen: boolean;
   setPanelOpen: (v: boolean) => void;
@@ -485,6 +489,12 @@ export const useStore = create<AppState>()(
       trips: [],
       deleteTrip: (id) => set((s) => ({ trips: s.trips.filter((t) => t.id !== id) })),
       clearTrips: () => set({ trips: [] }),
+      setTripPassStates: (tripId, states) =>
+        set((s) => ({
+          trips: s.trips.map((t) =>
+            t.id === tripId ? { ...t, passes: t.passes.map((p) => (states[p.cameraId] ? { ...p, state: states[p.cameraId] } : p)) } : t,
+          ),
+        })),
 
       panelOpen: true,
       setPanelOpen: (v) => set({ panelOpen: v }),

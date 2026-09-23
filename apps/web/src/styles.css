@@ -1821,6 +1821,28 @@ input[type='range'] {
   border-top: 1px solid var(--ink-600);
   padding: 8px 0;
 }
+.trip .expo__head {
+  margin-top: 10px;
+}
+.trip__op {
+  padding: 6px 0;
+  border-top: 1px dashed var(--ink-600);
+}
+a.btn {
+  text-decoration: none;
+}
+.trip__op-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+.trip__op .field__help {
+  margin-top: 2px;
+}
+.trip__op .summary__actions {
+  margin-top: 6px;
+}
 .expo__head {
   display: flex;
   justify-content: space-between;

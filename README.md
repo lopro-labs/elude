@@ -42,8 +42,9 @@ Browser (React + MapLibre GL)  →  api (Node 20 / Fastify)  →  GraphHopper 11
   you pass it: on-screen strip, spoken, and a vibration on the phone.
 - **Scout mode** — the same alerts without a route: tap Scout and drive; cameras mapped near you are
   announced as you approach and pass them.
-- **Trip log** — every camera you passed (time, position, manufacturer, operator, OSM link) is kept in
-  your browser; export as CSV or copy a public-records request template grouped by operator.
+- **Trip log → records request** — every camera you passed (time, position, manufacturer, operator,
+  OSM link) is kept in your browser. For each operator, a ready-to-send public-records request that
+  cites that state's statute and response deadline, plus a link to the agency on MuckRock; or export CSV.
 - **Share & export** — routes encode into the URL (shareable/refresh-proof) and export to **GPX**.
 - **Real address search** — Photon for places, with a free **US Census** house-number fallback.
 
@@ -155,7 +156,7 @@ most of a stack (GraphHopper, MapLibre); pick whichever fits how you drive.
 | Camera facing | direction-aware; bridge/tunnel aware | — | — |
 | Modes | car | car, bicycle, foot | car |
 | While driving | turn-by-turn with approach/pass alerts; **Scout** alerts without a route | map with cameras | turn-by-turn |
-| Afterwards | **trip log** + per-operator public-records request template | — | — |
+| Afterwards | **trip log** + per-operator public-records request citing the state statute, MuckRock agency lookup | — | — |
 | Also | multi-stop, user avoid-zones, speed/red-light/CCTV layers, GPX, share links | waypoints, GPX | gas prices |
 
 If Elude's routing or records-request pieces are useful to another project, take them — that's what the
